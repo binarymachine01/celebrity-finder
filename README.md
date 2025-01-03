@@ -76,7 +76,7 @@ cd celebrity-finder
    ```bash
    aws cloudformation create-stack --stack-name celebrity-finder-stack --template-body file://ec2-fastapi-template.yaml --parameters ParameterKey=KeyName,ParameterValue=<your-key-name>
    ```
-3. Retrieve the application URL from the stack outputs:
+3. Once the stack deployment is complete (approximately 1 minute), retrieve the application URL from the Stack Outputs section:
    ```bash
    aws cloudformation describe-stacks --stack-name celebrity-finder-stack --query "Stacks[0].Outputs"
    ```
