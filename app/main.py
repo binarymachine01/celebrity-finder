@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from app.rekognition import analyze_image_async
 from app.auth import authenticate_user
 from app.tasks import TaskManager
-from config import RATE_LIMIT_REQUESTS, RATE_LIMIT_PERIOD
+from app.config import RATE_LIMIT_REQUESTS, RATE_LIMIT_PERIOD
 
 app = FastAPI()
 security = HTTPBasic()
