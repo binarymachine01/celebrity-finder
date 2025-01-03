@@ -1,6 +1,9 @@
 import uuid
 from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks, Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
+from redis.asyncio import Redis
 from app.rekognition import analyze_image_async
 from app.auth import authenticate_user
 from app.tasks import TaskManager
@@ -9,7 +12,14 @@ app = FastAPI()
 security = HTTPBasic()
 task_manager = TaskManager()
 
-@app.post("/process-image/")
+
+@app.on_event("startup")
+async def startup():
+    redis = Redis(host="localhost", port=6379, decode_responses=True)
+    await FastAPILimiter.init(redis)
+
+
+@app.post("/process-image/", dependencies=[Depends(RateLimiter(times=2, seconds=60))])
 async def process_image(
     file: UploadFile, background_tasks: BackgroundTasks, credentials: HTTPBasicCredentials = Depends(security)
 ):
@@ -31,6 +41,7 @@ async def process_image(
 
     background_tasks.add_task(analyze_image_async, task_id, file_content, task_manager)
     return {"task_id": task_id, "message": "Processing started asynchronously!"}
+
 
 @app.get("/task-status/{task_id}")
 async def task_status(task_id: str, credentials: HTTPBasicCredentials = Depends(security)):
