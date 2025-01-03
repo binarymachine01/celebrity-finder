@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from app.rekognition import analyze_image_async
 from app.auth import authenticate_user
 from app.tasks import TaskManager
+from config import RATE_LIMIT_REQUESTS, RATE_LIMIT_PERIOD
 
 app = FastAPI()
 security = HTTPBasic()
@@ -19,7 +20,8 @@ async def startup():
     await FastAPILimiter.init(redis)
 
 
-@app.post("/process-image/", dependencies=[Depends(RateLimiter(times=2, seconds=60))])
+@app.post("/process-image/", dependencies=[Depends(RateLimiter(times=RATE_LIMIT_REQUESTS,
+                                                               seconds=RATE_LIMIT_PERIOD))])
 async def process_image(
     file: UploadFile, background_tasks: BackgroundTasks, credentials: HTTPBasicCredentials = Depends(security)
 ):
