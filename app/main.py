@@ -1,33 +1,46 @@
-from fastapi import FastAPI, Depends
-from celery import Celery
-from app.auth import authenticate
-from pydantic import BaseModel
-import os
+import uuid
+from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks, Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from app.rekognition import analyze_image_async
+from app.auth import authenticate_user
+from app.tasks import TaskManager
 
-# Initialize FastAPI
 app = FastAPI()
+security = HTTPBasic()
+task_manager = TaskManager()
 
-# Celery setup
-celery = Celery(
-    "tasks",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_BACKEND_URL", "redis://localhost:6379/0"),
-)
+@app.post("/process-image/")
+async def process_image(
+    file: UploadFile, background_tasks: BackgroundTasks, credentials: HTTPBasicCredentials = Depends(security)
+):
+
+    if not authenticate_user(credentials.username, credentials.password):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-class DataRequest(BaseModel):
-    data: str
+    if file.content_type not in ["image/jpeg", "image/png"]:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG and PNG are supported.")
 
-@app.post("/submit")
-async def submit_data(request: DataRequest, username: str = Depends(authenticate)):
-    task = celery.send_task("app.tasks.process_data", args=[request.data])
-    return {"task_id": task.id}
 
-@app.get("/status/{task_id}")
-async def check_status(task_id: str, username: str = Depends(authenticate)):
-    task = celery.AsyncResult(task_id)
-    if task.state == "PENDING":
-        return {"state": "PENDING", "result": None}
-    elif task.state == "FAILURE":
-        return {"state": "FAILURE", "error": str(task.info)}
-    return {"state": task.state, "result": task.result}
+    file_content = await file.read()
+
+
+    task_id = str(uuid.uuid4())
+    task_manager.create_task(task_id)
+
+
+    background_tasks.add_task(analyze_image_async, task_id, file_content, task_manager)
+    return {"task_id": task_id, "message": "Processing started asynchronously!"}
+
+@app.get("/task-status/{task_id}")
+async def task_status(task_id: str, credentials: HTTPBasicCredentials = Depends(security)):
+
+    if not authenticate_user(credentials.username, credentials.password):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+    status = task_manager.get_task_status(task_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Task ID not found")
+
+    return {"task_id": task_id, "status": status}

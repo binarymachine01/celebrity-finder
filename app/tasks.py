@@ -1,11 +1,12 @@
-from celery import Celery
-import time
+class TaskManager:
+    def __init__(self):
+        self.tasks = {}
 
+    def create_task(self, task_id: str):
+        self.tasks[task_id] = "PENDING"
 
-celery = Celery("tasks", broker="redis://localhost:6379/0", backend="redis://localhost:6379/0")
+    def update_task(self, task_id: str, status: str):
+        self.tasks[task_id] = status
 
-
-@celery.task
-def process_data_task(data: str):
-    time.sleep(5)
-    return {"processed_data": data.upper()}
+    def get_task_status(self, task_id: str):
+        return self.tasks.get(task_id)

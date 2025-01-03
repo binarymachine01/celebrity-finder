@@ -1,15 +1,7 @@
-from fastapi import HTTPException, Depends
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
+from fastapi.security import HTTPBasicCredentials
 
-security = HTTPBasic()
-
-# Mock user database
-users = {"admin": "password123"}
-
-def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
-    username = credentials.username
-    password = credentials.password
-    if username not in users or not secrets.compare_digest(users[username], password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return username
+def authenticate_user(username: str, password: str) -> bool:
+    # Basic authentication example
+    valid_username = "admin"
+    valid_password = "password123"
+    return username == valid_username and password == valid_password
